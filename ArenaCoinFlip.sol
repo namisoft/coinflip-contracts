@@ -996,6 +996,7 @@ contract CoinFlipGameHouse is GameHouseBase, IRandomnessConsumer {
     uint8 internal constant COIN_SIDE_DOWN = 2;
     
     uint8 internal constant GAME_STATE_PENDING = 1;
+    uint8 internal constant GAME_STATE_RANDOMNESS_FULFILLED = 2;
     uint8 internal constant GAME_STATE_FINALIZED = 0x80;
     uint8 internal constant GAME_STATE_CANCELED = 0xff;
 
@@ -1029,10 +1030,11 @@ contract CoinFlipGameHouse is GameHouseBase, IRandomnessConsumer {
         uint8 resolvedSide;         // Resolved side: 1 - up, 2 - down
         uint8 state;                // Game state: 1-pending, 0x80-finalized, 0xFF-canceled
         address player;             // Player address
-        uint64 time;                // Block time where bet was placed
+        uint64 placedBlock;         // Block number where the bet was placed
         
         uint256 amount;             // Bet amount
         uint256 rReqId;             // Randomness request id
+        uint256 randomNum;          // Random number that is used to decide the game
     }
     
     // Bet records in the form: betId => BetRecord
@@ -1041,8 +1043,20 @@ contract CoinFlipGameHouse is GameHouseBase, IRandomnessConsumer {
     // mapping: randomness reqId => betId
     mapping(uint256 => uint56) public betIdOfRandomnessReq;
     
+    // the flag that indicates if we will resolve the game on receiving the randomness.
+    // When switching from our in-house randomizer to Chainlink VRF, we need to set it to `false`
+    // (because Chainlink VRF does not allow a callback with more than 200K gas-consuming,
+    // that is not enough for our game resolving routine, we need to postpone 
+    // this task for bot to process it in a separate TX)
+    bool public resolveGameOnRandomnessFulfillment = true;
+    
+    // The number of blocks (that passed from bet-placed block) 
+    // that allows user to cancel the game (if it has not been resolved)
+    uint256 public passedBlocksForCancelable = 257;
+    
     // Events
-    event BetPlace(uint256 indexed betId, uint256 amount, uint8 side, uint256 r);
+    event BetPlace(uint256 indexed betId, uint256 amount, uint8 side, uint256 r, uint256 time);
+    event FulfillRandomness(uint256 indexed betId);
     event FinalizeGame(uint256 indexed betId, uint256 payoutAmt, uint256 totalFee);
     event CancelGame(uint256 indexed betId);
    
@@ -1116,6 +1130,8 @@ contract CoinFlipGameHouse is GameHouseBase, IRandomnessConsumer {
         (uint256 minBetableValue, uint256 maxBetableValue) = getBetableAmtRange();
         require(_amount >= minBetableValue && _amount <= maxBetableValue, "Bet amount is not allowed");
         
+        // Because we cannot declare too much local vars (that will cause the error in compiling),
+        // we define a `tmp` here for multi-purposes use!
          uint256 tmp;
         
         // Call `onBeforeBet` handle of extensions
@@ -1140,15 +1156,22 @@ contract CoinFlipGameHouse is GameHouseBase, IRandomnessConsumer {
         betIdOfRandomnessReq[tmp] = currentBetId;
         
         // Save bet record
-        betRecords[currentBetId] = BetRecord({
+        betRecords[currentBetId].betSide = _side;
+        betRecords[currentBetId].state = GAME_STATE_PENDING;
+        betRecords[currentBetId].player = player;
+        betRecords[currentBetId].placedBlock = uint64(block.number);
+        betRecords[currentBetId].amount = _amount;
+        betRecords[currentBetId].rReqId = tmp;
+        /*betRecords[currentBetId] = BetRecord({
             betSide: _side,
             resolvedSide: 0,
             state: GAME_STATE_PENDING,
             player: player,
             time: uint64(block.timestamp),
             amount: _amount,
-            rReqId: tmp
-        });
+            rReqId: tmp,
+            randomNum: 0
+        });*/
         
        
         // Update game stats
@@ -1172,7 +1195,7 @@ contract CoinFlipGameHouse is GameHouseBase, IRandomnessConsumer {
         }
         
         // Emit event
-        emit BetPlace(currentBetId, _amount, _side, _r);
+        emit BetPlace(currentBetId, _amount, _side, _r, block.timestamp);
         
         // Call `onAfterBet` handle of extensions
         for(tmp=0; tmp<totalExtensions(); tmp++){
@@ -1193,13 +1216,44 @@ contract CoinFlipGameHouse is GameHouseBase, IRandomnessConsumer {
             // silent quit, not reverting
             return;
         }
-
-        if(_randomNum == 0){
-            // cannot generate a randomness: cancel the game
-            _cancelGame(toResolveBetId, false);
+        
+        // store random number
+        betRecords[toResolveBetId].randomNum = _randomNum;
+        
+        if(resolveGameOnRandomnessFulfillment){
+            // resolve the game immediately
+            if(_randomNum == 0){
+                // cannot generate a randomness: cancel the game
+                _cancelGame(toResolveBetId, false);
+            } else {
+                // finalize the game
+                _finalizeGame(toResolveBetId);
+            }
+        } else {
+            // postpone the game resolving
+            //  -- Update bet record state
+            betRecords[toResolveBetId].state = GAME_STATE_RANDOMNESS_FULFILLED;
+            // --- Emit event
+            emit FulfillRandomness(toResolveBetId);
+        }
+    }
+    
+    function resolveGame(uint56 _betId) external {
+        // only allow when the flag resolveGameOnRandomnessFulfillment is off
+        require(resolveGameOnRandomnessFulfillment == false, "Not allowed");
+        
+        // Check existance of the bet
+        require(_betId < statsData.currentBetId, "Invalid _betId");
+        
+        // Verify game state
+        require(betRecords[_betId].state == GAME_STATE_RANDOMNESS_FULFILLED, "Invalid game state");
+        
+        if(betRecords[_betId].randomNum == 0){
+            // could not generate a randomness before: cancel the game
+            _cancelGame(_betId, msg.sender == betRecords[_betId].player);
         } else {
             // finalize the game
-            _finalizeGame(toResolveBetId, _randomNum);
+            _finalizeGame(_betId);
         }
     }
     
@@ -1210,13 +1264,21 @@ contract CoinFlipGameHouse is GameHouseBase, IRandomnessConsumer {
             // Bet does not exist
             return (false);
         }
-        if(betRecords[_betId].state != GAME_STATE_PENDING){
+        
+        uint8 state = betRecords[_betId].state;
+        
+        if(state == GAME_STATE_RANDOMNESS_FULFILLED && betRecords[_betId].randomNum != 0){
+            // cannot cancel the game when the randomness already fulfilled
+            return (false);
+        }
+        
+        if(state == GAME_STATE_FINALIZED || state == GAME_STATE_CANCELED){
             // Game already resolved
             return (false);
         }
         
         // is cancelable if currrent block is too far from bet palced block
-         return (randomizer.checkRequestState(_betId) == 3);
+         return (block.number > betRecords[_betId].placedBlock + passedBlocksForCancelable);
     }
     
     // For player who wants to recover fund manually if the game cannot be finalized
@@ -1229,19 +1291,24 @@ contract CoinFlipGameHouse is GameHouseBase, IRandomnessConsumer {
         _cancelGame(_betId, true);
     }
     
+    function setPassedBlocksForCancelable(uint256 _newValue) external onlyOwner {
+        passedBlocksForCancelable = _newValue;
+    }
     
-    function _finalizeGame(uint56 _betId, uint256 _randomNum) internal{
+    
+    function _finalizeGame(uint56 _betId) internal{
         BetRecord storage betRecord = betRecords[_betId];
          
+        uint256 randomNum = betRecord.randomNum;
         
         // Call `onBeforeFinalize` hanndle of extensions
         uint256 ttExtensions = totalExtensions();
         for(uint256 i=0; i<ttExtensions; i++){
-            ICoinFlipGameExtension(address(extensionAt(i))).onBeforeFinalize(_betId, _randomNum);
+            ICoinFlipGameExtension(address(extensionAt(i))).onBeforeFinalize(_betId, randomNum);
         }
         
         // Decide the game
-        uint8 resolvedSide = uint8((_randomNum % 2)) + 1;
+        uint8 resolvedSide = uint8((randomNum % 2)) + 1;
         
         // Calculate game fees
         uint256 totalFee = (betRecord.amount * totalFeePerBet()) / MAX_BIPS;
@@ -1290,7 +1357,7 @@ contract CoinFlipGameHouse is GameHouseBase, IRandomnessConsumer {
         
         // Call `onAfterFinalize` hanndle of extensions
         for(uint256 i=0; i<ttExtensions; i++){
-            ICoinFlipGameExtension(address(extensionAt(i))).onAfterFinalize(_betId, _randomNum);
+            ICoinFlipGameExtension(address(extensionAt(i))).onAfterFinalize(_betId, betRecord.randomNum);
         }
     }
     

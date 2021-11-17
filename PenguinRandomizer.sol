@@ -39,7 +39,7 @@ abstract contract CommitRevealRandomizer is IRandomizer {
         uint256 r;                  // input random number from user
         uint256 blockNum;           // block number where request received
         address consumer;           // consumer who sent the request
-        uint256 result;             // generated randomnness
+        //uint256 result;             // generated randomnness
     }
     // mapping: requestId => Request
     mapping(uint256 => Request) public requests;
@@ -187,7 +187,7 @@ abstract contract CommitRevealRandomizer is IRandomizer {
             bytes32 usedBlockHash = blockhash(req.blockNum + 1);
             uint256 randomNum = uint256(keccak256(abi.encodePacked(_secret, req.r, usedBlockHash)));
             // update request result
-            requests[requestId].result = randomNum;
+            //requests[requestId].result = randomNum;
             // callback to consumer
             _invokeFulfillRandomness(req.consumer, requestId, randomNum);
         }
