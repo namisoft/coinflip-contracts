@@ -130,7 +130,11 @@ contract GameMaster is IGameMaster, PenguinDef, Withdrawable, Ownable {
     // in the form (game house factory) => yes/no
     mapping(address => bool) public allowExternalGameHouse;
     
-    uint256 public gameHouseMinInitialFund = 1000 * 1e18;
+    //uint256 public gameHouseMinInitialFund = 1000 * 1e18;
+    
+    // required minimum intial fund for game house
+    // in the form: (payment currency) => amount
+    mapping(address => uint256) minRequiredInitialFund;
     
     EnumerableSet.AddressSet private gameHouseRegistry;
     
@@ -153,7 +157,7 @@ contract GameMaster is IGameMaster, PenguinDef, Withdrawable, Ownable {
     
     // Default operation fee allocators that is set for game house on registration
     FeeAllocator[] public defaultOperationFeeAllocators;
-    // Specified operation fee allocators for each game house (can be set by game master owner)
+    // Specified operation fee allocators for each game house (can be set by game master owner only)
     // it is in the form: (game house tracker) => FeeAllocator[]
     mapping(address => FeeAllocator[]) public operationFeeAllocators;
     // accumulated operation fee by game house
@@ -199,9 +203,16 @@ contract GameMaster is IGameMaster, PenguinDef, Withdrawable, Ownable {
         if(!allowExternalGameHouse[address(_factory)]){
             require(caller == owner(), "External Game House is not allowed");
         }
+        
+        uint256 minInitialFund = minRequiredInitialFund[address(_paymentCurrency)];
+        if(minInitialFund == 0) {
+            // required value is not set yet, we use default value
+            minInitialFund = 1000 * 1e18;
+        }
+        
         require(isTrustedGameHouseFactory[address(_factory)], "Untrusted factory");
         require(isSupportedCurrency(address(_paymentCurrency)), "Unsupported payment token");
-        require(_initialFund >= gameHouseMinInitialFund, "Initial deposit fund is not good");
+        require(_initialFund >= minInitialFund, "Initial deposit fund is not good");
         require(_paymentCurrency.balanceOf(caller) >= _initialFund, "Balance exceeds");
         
         ITracker tracker = new Tracker();
@@ -479,8 +490,9 @@ contract GameMaster is IGameMaster, PenguinDef, Withdrawable, Ownable {
             }
     }
     
-    function setGameHouseMinInitialFund(uint256 _amount) external onlyOwner {
-        gameHouseMinInitialFund = _amount;
+    function setMinRequiredInitialFund(address _paymentCurrency, uint256 _amount) external onlyOwner {
+        require(_amount > 0, "Bad input");
+        minRequiredInitialFund[_paymentCurrency] = _amount;
     }
     
     function gameHousesOf(address _gameOwner) external view returns(address[] memory _gameHouses){
