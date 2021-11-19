@@ -53,6 +53,7 @@ interface IGameHouse is ITrackable {
     function setPlayerStorage(IArenaPlayerStorage _playerStorge) external;
     function setOperationFee(uint256 _value) external;
     function setRandomizer(IRandomizer _randomizer) external;
+    function setResolveGameOnRandomnessFulfillment(bool _value) external;
     function onUnreg(address _withdrawTo) external;
     function migrate(IGameHouse _toGameHouse) external;
     function onMigration(IGameHouse _fromGameHouse) external;
@@ -541,6 +542,11 @@ contract GameMaster is IGameMaster, PenguinDef, Withdrawable, Ownable {
         isTrustedParty[_toRemove] = false;
     }
     
+    function setResolveGameOnRandomnessFulfillment(IGameHouse _forGameHouse, bool _value) external onlyOwner {
+        require(isRegisteredGameHouse[address(_forGameHouse)], "Not in the game house registry");
+        _forGameHouse.setResolveGameOnRandomnessFulfillment(_value);
+    }
+    
     function addGameExtension(IGameHouse _gameHouse, IGameExtension _ex) external onlyOwner{
         require(isRegisteredGameHouse[address(_gameHouse)], "Not in the game house registry");
         _gameHouse.addExtension(_ex);
@@ -584,7 +590,7 @@ contract GameMaster is IGameMaster, PenguinDef, Withdrawable, Ownable {
  *  Base class for any single betting game house contract.
  *  This contract does not deal with any game logic; it just deals only with game house fund management
  */
-contract GameHouseBase is IGameHouse, PenguinDef, Ownable, AccessControl {
+abstract contract GameHouseBase is IGameHouse, PenguinDef, Ownable, AccessControl {
     using SafeERC20 for IERC20;
     using Address for address;
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -1131,7 +1137,7 @@ contract CoinFlipGameHouse is GameHouseBase, IRandomnessConsumer {
         require(_amount >= minBetableValue && _amount <= maxBetableValue, "Bet amount is not allowed");
         
         // Because we cannot declare too much local vars (that will cause the error in compiling),
-        // we define a `tmp` here for multi-purposes use!
+        // we define a `tmp` var here for multi-purposes use!
          uint256 tmp;
         
         // Call `onBeforeBet` handle of extensions
@@ -1293,6 +1299,10 @@ contract CoinFlipGameHouse is GameHouseBase, IRandomnessConsumer {
     
     function setPassedBlocksForCancelable(uint256 _newValue) external onlyOwner {
         passedBlocksForCancelable = _newValue;
+    }
+    
+    function setResolveGameOnRandomnessFulfillment(bool _value) external onlyGameMaster {
+        resolveGameOnRandomnessFulfillment = _value;
     }
     
     
