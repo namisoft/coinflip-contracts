@@ -52,7 +52,7 @@ abstract contract CommitRevealRandomizer is IRandomizer {
     
     // Events definition
     event SecretHashCommitted(uint256 indexed secretHash, address indexed committer);
-    event SecretHashAssigned(uint256 indexed secretHash, uint256 secretIndex);
+    event SecretHashAssigned(uint256 indexed secretHash, uint256 secretIndex, uint256 indexed requestId);
     event SecretRevealed(uint256 indexed hash, uint256 secret);
     event FulfillRandomness(uint256 indexed requestId, uint256 randomNum);
     
@@ -133,7 +133,7 @@ abstract contract CommitRevealRandomizer is IRandomizer {
         reqThatSecretAssignedTo[usedSecretHash] = requestId;
         
         // emit event
-        emit SecretHashAssigned(usedSecretHash, requestCounter);
+        emit SecretHashAssigned(usedSecretHash, requestCounter, requestId);
         
         return requestId;
     }
@@ -237,6 +237,16 @@ contract PenguinRandomizer is IPenguinRandomizer, CommitRevealRandomizer, Ownabl
     // Note: just define value here, not implemented the logic yet
     uint256 public callbackGasLimit = 800000;
     
+    // events
+    event AddConsumerAdmin(address indexed admin, address indexed caller, uint256 time);
+    event RemoveConsumerAdmin(address indexed admin, address indexed caller, uint256 time);
+    event AddConsumer(address indexed consumer, address indexed caller, uint256 time);
+    event RemoveConsumer(address indexed consumer, address indexed caller, uint256 time);
+    event AddTrustedDealer(address indexed dealer, uint256 time);
+    event RemoveTrustedDealer(address indexed dealer, uint256 time);
+    event SetCallbackGasLimit(uint256 value, uint256 time);
+    
+    
     constructor() {
         // grant "default admin" role for contract owner
         _grantRole(DEFAULT_ADMIN_ROLE, owner());
@@ -271,21 +281,25 @@ contract PenguinRandomizer is IPenguinRandomizer, CommitRevealRandomizer, Ownabl
     
     function addConsumerAdmin(address _toAdd) external{
         grantRole(CONSUMER_ADMIN_ROLE, _toAdd);
+        emit AddConsumerAdmin(_toAdd, msg.sender, block.timestamp);
     }
     
     
     function removeConsumerAdmin(address _toRemove) external{
         revokeRole(CONSUMER_ADMIN_ROLE, _toRemove);
+        emit RemoveConsumerAdmin(_toRemove, msg.sender, block.timestamp);
     }
     
     
     function addConsumer(address _toAdd) external override{
         grantRole(CONSUMER_ROLE, _toAdd);
+        emit AddConsumer(_toAdd, msg.sender, block.timestamp);
     }
     
     
     function removeConsumer(address _toRemove) external override{
         revokeRole(CONSUMER_ROLE, _toRemove);
+        emit RemoveConsumer(_toRemove, msg.sender, block.timestamp);
     }
     
     function isTrustedConsumer(address _toCheck) public view returns(bool) {
@@ -295,16 +309,19 @@ contract PenguinRandomizer is IPenguinRandomizer, CommitRevealRandomizer, Ownabl
     
     function addTrustedDealer(address _toAdd) external onlyOwner {
         isTrustedDealer[_toAdd] = true;
+        emit AddTrustedDealer(_toAdd, block.timestamp);
     }
     
     
     function removeTrustedDealer(address _toRemove) external onlyOwner {
         isTrustedDealer[_toRemove] = false;
+        emit RemoveTrustedDealer(_toRemove, block.timestamp);
     }
     
     
     function setCallbackGasLimit(uint256 _value) external onlyOwner {
         callbackGasLimit = _value;
+        emit SetCallbackGasLimit(_value, block.timestamp);
     }
     
 }

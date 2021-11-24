@@ -96,6 +96,21 @@ contract ArenaPlayerStorage is IArenaPlayerStorage {
     // Nickname DB
     mapping(string => bool) public existingNickname;
     
+    // Events
+    event Approve(address indexed player, address indexed to, uint256 time);
+    event Unapprove(address indexed player, address indexed to, uint256 time);
+    event SetNickname(address indexed player, address caller, string nickname, uint256 time);
+    event SetAvatar(
+        address indexed player, 
+        address caller,
+        uint8 avatarType,
+        uint256 avatarId,
+        address avatarNFTContract,
+        uint256 time
+        );
+    event UpdateGameData(address indexed player, address indexed forGame, uint256 time);
+        
+    
     modifier onlyApprovedCaller(address _player) {
         require(hadApproved[_player][msg.sender], "Not a approved caller");
         _;
@@ -104,10 +119,12 @@ contract ArenaPlayerStorage is IArenaPlayerStorage {
    
     function approve(address _of) external override {
         hadApproved[msg.sender][_of] = true;
+        emit Approve(msg.sender, _of, block.timestamp);
     }
     
     function unapprove(address _of) external override {
         hadApproved[msg.sender][_of] = false;
+        emit Unapprove(msg.sender, _of, block.timestamp);
     }
     
     
@@ -121,7 +138,7 @@ contract ArenaPlayerStorage is IArenaPlayerStorage {
        _setNickname(msg.sender, _nickName);
     }
     
-    function setNickNameFor(address _player, string memory _nickName) external override onlyApprovedCaller(msg.sender){
+    function setNickNameFor(address _player, string memory _nickName) external override onlyApprovedCaller(_player){
         _setNickname(_player, _nickName);
     }
     
@@ -143,7 +160,7 @@ contract ArenaPlayerStorage is IArenaPlayerStorage {
         _setAvatarBuiltIn(msg.sender, _avatarId);
     }
     
-    function setAvatarBuiltInFor(address _player, uint256 _avatarId) external override onlyApprovedCaller(msg.sender){
+    function setAvatarBuiltInFor(address _player, uint256 _avatarId) external override onlyApprovedCaller(_player){
         _setAvatarBuiltIn(_player, _avatarId);
     }
     
@@ -156,7 +173,7 @@ contract ArenaPlayerStorage is IArenaPlayerStorage {
         _setAvatarNFT(msg.sender, _nftContract, _tokenId);
     }
     
-    function setAvatarNFTFor(address _player, IERC721 _nftContract, uint256 _tokenId) external override onlyApprovedCaller(msg.sender){
+    function setAvatarNFTFor(address _player, IERC721 _nftContract, uint256 _tokenId) external override onlyApprovedCaller(_player){
         _setAvatarNFT(_player, _nftContract, _tokenId);
     }
     
@@ -238,7 +255,8 @@ contract ArenaPlayerStorage is IArenaPlayerStorage {
             if(_amountOut > 0){
                 gamePlayStats[_player][recordFor].amountOut += uint128(_amountOut / 1e9); 
             }
-
+            
+            emit UpdateGameData(_player, recordFor, block.timestamp);
     }
     
     
@@ -249,6 +267,7 @@ contract ArenaPlayerStorage is IArenaPlayerStorage {
         if(!isNicknameSet[_player]){
             isNicknameSet[_player] = true;
         }
+        emit SetNickname(_player, msg.sender, _nickName, block.timestamp);
     }
     
     function _setAvatarBuiltIn(address _player, uint256 _avatarId) internal{
@@ -257,6 +276,7 @@ contract ArenaPlayerStorage is IArenaPlayerStorage {
         if(!isAvatarSet[_player]){
             isAvatarSet[_player] = true;
         }
+        emit SetAvatar(_player, msg.sender, AVATAR_TYPE_BUILT_IN, _avatarId, address(0), block.timestamp);
     }
     
     function _setAvatarNFT(address _player, IERC721 _nftContract, uint256 _tokenId) internal{
@@ -267,6 +287,7 @@ contract ArenaPlayerStorage is IArenaPlayerStorage {
         if(!isAvatarSet[_player]){
             isAvatarSet[_player] = true;
         }
+        emit SetAvatar(_player, msg.sender, AVATAR_TYPE_NFT, _tokenId, address(_nftContract), block.timestamp);
     }
     
 }
