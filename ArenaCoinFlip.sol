@@ -71,8 +71,6 @@ interface IGameHouse is ITrackable {
 
     function setRandomizer(IRandomizer _randomizer) external;
 
-    function setResolveGameOnRandomnessFulfillment(bool _value) external;
-
     function onUnreg(address _withdrawTo) external;
 
     function migrate(IGameHouse _toGameHouse) external;
@@ -622,11 +620,6 @@ contract GameMaster is IGameMaster, PenguinDef, Withdrawable, Ownable {
     function removeTrustedParty(address _toRemove) external onlyOwner {
         isTrustedParty[_toRemove] = false;
         emit RemoveTrustedParty(_toRemove, block.timestamp);
-    }
-
-    function setResolveGameOnRandomnessFulfillment(IGameHouse _forGameHouse, bool _value) external onlyOwner {
-        require(isRegisteredGameHouse[address(_forGameHouse)], "Not in the game house registry");
-        _forGameHouse.setResolveGameOnRandomnessFulfillment(_value);
     }
 
     function addGameExtension(IGameHouse _gameHouse, IGameExtension _ex, bool _allowUsingTracker) external onlyOwner {
@@ -1436,7 +1429,7 @@ contract CoinFlipGameHouse is GameHouseBase, IRandomnessConsumer {
         _cancelGame(_betId, true);
     }
 
-    function setPassedBlocksForCancelable(uint256 _newValue) external onlyOwner {
+    function setPassedBlocksForCancelable(uint256 _newValue) external onlyGameMaster {
         passedBlocksForCancelable = _newValue;
         emit SetPassedBlocksForCancelable(_newValue, block.timestamp);
     }
