@@ -28,7 +28,7 @@ interface IPenguinRandomizer is IRandomizer {
 }
 
 
-contract PenguinVRF is IPenguinRandomizer, VRFConsumerBase, Withdrawable, Ownable, AccessControl{
+contract PenguinChainlinkVRF is IPenguinRandomizer, VRFConsumerBase, Withdrawable, Ownable, AccessControl{
     // TODO: Settings for VRF client. Please change them when deploy on prod environment -------------------------
     address constant internal LINK_TOKEN = 0x326C977E6efc84E512bB9C30f76E30c160eD06FB;
     address constant internal VRF_CONTRACT = 0x8C7382F9D8f56b33781fE506E897a4F1e2d17255;
