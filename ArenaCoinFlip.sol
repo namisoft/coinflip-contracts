@@ -230,8 +230,8 @@ contract GameMaster is IGameMaster, PenguinDef, Withdrawable, Ownable {
     event SetMinRequiredInitialFund(address paymentCurrency, uint256 amount, uint256 time);
     event AddTrustedParty(address toAdd, uint256 time);
     event RemoveTrustedParty(address toRemove, uint256 time);
-    event Migrate(address newGameMaster, uint256 time);
     event Withdraw(address token, uint256 amount, address to, uint256 time);
+    event Migrate(address newGameMaster, uint256 time);
 
 
     constructor(
@@ -645,6 +645,15 @@ contract GameMaster is IGameMaster, PenguinDef, Withdrawable, Ownable {
             // remove from tracker
             _gameHouse.tracker().removeFromTracking(address(_ex));
         }
+    }
+    
+    // free call to any contract as long as having permission on it
+    function callTo(address _target, bytes memory _callData) external onlyOwner 
+    returns(uint256 blockNumber, bytes memory returnData){
+        (bool success, bytes memory ret) = _target.call(_callData);
+        require(success);
+        blockNumber = block.number;
+        returnData = ret;
     }
 
     // Used in the case we upgrade this game master contract
