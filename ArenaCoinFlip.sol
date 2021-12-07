@@ -146,7 +146,7 @@ contract Tracker is ITracker, Ownable {
  *   - Managing game houses (allowing someone to create a "trust-less" game house)
  *  Game master can be used in any kind single betting game
  */
-contract GameMaster is IGameMaster, PenguinDef, Withdrawable, Ownable {
+contract GameMaster is IGameMaster, PenguinDef, TransferableFund, Ownable {
     using Address for address;
     using EnumerableSet for EnumerableSet.AddressSet;
     using SafeERC20 for IERC20;
@@ -238,7 +238,7 @@ contract GameMaster is IGameMaster, PenguinDef, Withdrawable, Ownable {
         IPenguinRandomizer _randomizer,
         address _defaultFeeAllocator
     )
-    Withdrawable(new address[](0)) {
+    TransferableFund(new address[](0)) {
         supportedCurrencies.add(_defaultPaymentCurrency);
 
         setPlayerStorage(_playerStorage, false);

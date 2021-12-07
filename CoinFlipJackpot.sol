@@ -44,7 +44,7 @@ interface ICoinFlipGameHouse {
 }
 
 
-contract CoinFlipJackpot is IERC20Receiver, ICoinFlipGameExtension, Ownable, Withdrawable(new address[](0)){
+contract CoinFlipJackpot is IERC20Receiver, ICoinFlipGameExtension, Ownable, TransferableFund(new address[](0)){
     ICoinFlipGameHouse public immutable gameHouse;
     uint256 public jackpotAmt;              // jackpot accumulated amount
     uint256 public accumulatedFromTime;     // the time when the jackpot begun to accummulate

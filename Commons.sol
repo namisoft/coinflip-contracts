@@ -1297,8 +1297,8 @@ abstract contract Ownable is Context {
     }
 }
 
-// Contract that supports owner withdrawing ERC20 and native coin from
-abstract contract Withdrawable {
+// Contract that supports transfer ERC20 and native coin out
+abstract contract TransferableFund {
      using SafeERC20 for IERC20;
      
     //placeholder address for native token
