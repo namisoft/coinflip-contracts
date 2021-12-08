@@ -29,7 +29,7 @@ interface ICoinFlipGameExtension is IGameExtension {
 
 interface ICoinFlipGameHouse {
     function paymentCurrency() external view returns (IERC20);
-    
+    function playerStorage() external view returns (IArenaPlayerStorage);
     function betRecords(uint256 _betId) external view 
     returns(
     uint8 betSide,
@@ -44,17 +44,31 @@ interface ICoinFlipGameHouse {
 }
 
 
+interface IArenaPlayerStorage {
+    function updateGameData(
+        address _tracker,
+        address _player, 
+        bool _asNewGame,
+        bool _asWinner,
+        uint256 _amountIn,
+        uint256 _amountOut
+        ) external;
+}
+
+
 contract CoinFlipJackpot is IERC20Receiver, ICoinFlipGameExtension, Ownable, TransferableFund(new address[](0)){
     ICoinFlipGameHouse public immutable gameHouse;
     uint256 public jackpotAmt;              // jackpot accumulated amount
     uint256 public accumulatedFromTime;     // the time when the jackpot begun to accummulate
     uint256 public immutable chanceToWin;   // chanceToWin = 1000 means probability of jackpot trigger is 0.1%
+    address public lastWinner;
     
     event Triggered(address indexed player, uint256 amount, uint256 indexed betId, uint256 time);
     event Withdraw(address indexed sender, address to, uint256 amount, uint256 time);
     
     
     constructor(ICoinFlipGameHouse _gameHouse, uint256 _chanceToWin) {
+        require(_chanceToWin > 0, "Bad input");
         gameHouse = _gameHouse;
         chanceToWin = _chanceToWin;
     }
@@ -103,6 +117,9 @@ contract CoinFlipJackpot is IERC20Receiver, ICoinFlipGameExtension, Ownable, Tra
             emit Triggered(player, transferedAmt, _betId, block.timestamp);
             jackpotAmt = 0;
             accumulatedFromTime = 0;
+            lastWinner = player;
+            // update player storage
+            gameHouse.playerStorage().updateGameData(address(0), player, false, true, jackpotAmt, 0);
         }
     }
     
@@ -116,8 +133,8 @@ contract CoinFlipJackpot is IERC20Receiver, ICoinFlipGameExtension, Ownable, Tra
     
     // NOTE: have this function or not?
     function withdraw(address _to) external onlyOwner {
-        _safeTokenTransfer(address(gameHouse.paymentCurrency()), jackpotAmt, _to);
-        emit Withdraw(msg.sender, _to, jackpotAmt, block.timestamp);
+        uint256 withdrawalAmt = _safeTokenTransfer(address(gameHouse.paymentCurrency()), jackpotAmt, _to);
+        emit Withdraw(msg.sender, _to, withdrawalAmt, block.timestamp);
         jackpotAmt = 0;
         accumulatedFromTime = 0;
     }
