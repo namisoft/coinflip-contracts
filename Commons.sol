@@ -1305,12 +1305,12 @@ abstract contract TransferableFund {
     address public constant NATIVE_COIN = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     
     // Token that is prohibited to withdraw
-    mapping(address => bool) public withdrawProhibited;
+    mapping(address => bool) public transferProhibited;
     
     constructor(address[] memory _prohibitedTokens){
         uint256 len = _prohibitedTokens.length;
         for(uint i=0; i<len; i++){
-            withdrawProhibited[_prohibitedTokens[i]] = true;
+            transferProhibited[_prohibitedTokens[i]] = true;
         }
     }
     
@@ -1322,20 +1322,30 @@ abstract contract TransferableFund {
         }
     }
     
-    function _safeTokenTransfer(address _token, uint256 _amount, address _to) internal returns(uint256 withdrawalAmt){
-        require(!withdrawProhibited[_token], "Token withdrawal prohibited");
+    function _tokenTransfer(address _token, uint256 _amount, address _to) internal{
+        require(!transferProhibited[_token], "Token transfer prohibited");
+        if (_token == NATIVE_COIN) {
+            payable(_to).transfer(_amount);
+        } else {
+            IERC20(_token).safeTransfer(_to, _amount);          
+        }
+    }
+    
+    // transfer without reverting
+    function _safeTokenTransfer(address _token, uint256 _amount, address _to) internal returns(uint256 transferedAmt){
+        require(!transferProhibited[_token], "Token transfer prohibited");
         
         uint256 bal = _tokenBalance(_token);
         if(_amount > bal){
-            withdrawalAmt = bal;
+            transferedAmt = bal;
         } else{
-            withdrawalAmt = _amount;
+            transferedAmt = _amount;
         }
         
         if (_token == NATIVE_COIN) {
-            payable(_to).transfer(withdrawalAmt);
+            payable(_to).transfer(transferedAmt);
         } else {
-            IERC20(_token).safeTransfer(_to, withdrawalAmt);          
+            IERC20(_token).safeTransfer(_to, transferedAmt);          
         }
     }
 } 
