@@ -629,6 +629,8 @@ contract GameMaster is IGameMaster, PenguinDef, TransferableFund, Ownable {
             // allow extension using the game house tracker
             _gameHouse.tracker().addToTracking(address(_ex));
         }
+        // add as a trusted party
+        addTrustedParty(address(_ex));
     }
 
     function removeGameExtension(IGameHouse _gameHouse, IGameExtension _ex, bool _removeTracking) external onlyOwner {
@@ -638,6 +640,8 @@ contract GameMaster is IGameMaster, PenguinDef, TransferableFund, Ownable {
             // remove from tracker
             _gameHouse.tracker().removeFromTracking(address(_ex));
         }
+        // remove from trusted party list
+        removeTrustedParty(address(_ex));
     }
     
     // free call to any contract as long as having permission on it
