@@ -20,8 +20,8 @@ interface IGameExtension {
 interface ICoinFlipGameExtension is IGameExtension {
     function onBeforeBet(address _player, uint256 _amount, uint8 _side, uint256 _r) external;
     function onAfterBet(uint256 _betId) external;
-    function onBeforeFinalize(uint56 _betId, uint256 _randomNum) external;
-    function onAfterFinalize(uint56 _betId, uint256 _randomNum) external;
+    function onBeforeFinalize(uint56 _betId) external;
+    function onAfterFinalize(uint56 _betId) external;
     function onBeforeCancel(uint256 _betId, bool _canceledByPlayer) external;
     function onAfterCancel(uint256 _betId, bool _canceledByPlayer) external;
 }
@@ -106,14 +106,14 @@ contract CoinFlipJackpot is IERC20Receiver, ICoinFlipGameExtension, Ownable, Tra
     }
     
     
-    function onBeforeFinalize(uint56 _betId, uint256 _randomNum) external override onlyGameHouse{
+    function onBeforeFinalize(uint56 _betId) external override onlyGameHouse{
         
     }
     
-    function onAfterFinalize(uint56 _betId, uint256 _randomNum) external override onlyGameHouse{
-        (,,,address player,,,,) = gameHouse.betRecords(_betId);
+    function onAfterFinalize(uint56 _betId) external override onlyGameHouse{
+        (,,,address player,,,,uint256 randomNum) = gameHouse.betRecords(_betId);
         // do the roll
-        if((_randomNum % chanceToWin) == 0){
+        if((randomNum % chanceToWin) == 0){
             // player wins the jackpot!
             uint256 transferedAmt = _safeTokenTransfer(address(gameHouse.paymentCurrency()), jackpotAmt, player);
             emit Triggered(player, transferedAmt, _betId, block.timestamp);

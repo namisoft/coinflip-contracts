@@ -612,12 +612,12 @@ contract GameMaster is IGameMaster, PenguinDef, TransferableFund, Ownable {
         return supportedCurrencies.at(_index);
     }
 
-    function addTrustedParty(address _toAdd) external onlyOwner {
+    function addTrustedParty(address _toAdd) public onlyOwner {
         isTrustedParty[_toAdd] = true;
         emit AddTrustedParty(_toAdd, block.timestamp);
     }
 
-    function removeTrustedParty(address _toRemove) external onlyOwner {
+    function removeTrustedParty(address _toRemove) public onlyOwner {
         isTrustedParty[_toRemove] = false;
         emit RemoveTrustedParty(_toRemove, block.timestamp);
     }
@@ -1112,9 +1112,9 @@ interface ICoinFlipGameExtension is IGameExtension {
 
     function onAfterBet(uint256 _betId) external;
 
-    function onBeforeFinalize(uint56 _betId, uint256 _randomNum) external;
+    function onBeforeFinalize(uint56 _betId) external;
 
-    function onAfterFinalize(uint56 _betId, uint256 _randomNum) external;
+    function onAfterFinalize(uint56 _betId) external;
 
     function onBeforeCancel(uint256 _betId, bool _canceledByPlayer) external;
 
@@ -1452,7 +1452,7 @@ contract CoinFlipGameHouse is GameHouseBase, IRandomnessConsumer {
         // Call `onBeforeFinalize` hanndle of extensions
         uint256 ttExtensions = totalExtensions();
         for (uint256 i = 0; i < ttExtensions; i++) {
-            ICoinFlipGameExtension(address(extensionAt(i))).onBeforeFinalize(_betId, randomNum);
+            ICoinFlipGameExtension(address(extensionAt(i))).onBeforeFinalize(_betId);
         }
 
         // Decide the game
@@ -1505,7 +1505,7 @@ contract CoinFlipGameHouse is GameHouseBase, IRandomnessConsumer {
 
         // Call `onAfterFinalize` hanndle of extensions
         for (uint256 i = 0; i < ttExtensions; i++) {
-            ICoinFlipGameExtension(address(extensionAt(i))).onAfterFinalize(_betId, betRecord.randomNum);
+            ICoinFlipGameExtension(address(extensionAt(i))).onAfterFinalize(_betId);
         }
     }
 

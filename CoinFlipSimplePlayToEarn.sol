@@ -15,8 +15,8 @@ interface IGameExtension {
 interface ICoinFlipGameExtension is IGameExtension {
     function onBeforeBet(address _player, uint256 _amount, uint8 _side, uint256 _r) external;
     function onAfterBet(uint256 _betId) external;
-    function onBeforeFinalize(uint56 _betId, uint256 _randomNum) external;
-    function onAfterFinalize(uint56 _betId, uint256 _randomNum) external;
+    function onBeforeFinalize(uint56 _betId) external;
+    function onAfterFinalize(uint56 _betId) external;
     function onBeforeCancel(uint256 _betId, bool _canceledByPlayer) external;
     function onAfterCancel(uint256 _betId, bool _canceledByPlayer) external;
 }
@@ -121,11 +121,11 @@ contract CoinFlipSimplePlayToEarn is ICoinFlipGameExtension, Ownable, Transferab
        }
        playerRecords[player] = rec;
     }
-    function onBeforeFinalize(uint56 _betId, uint256 _randomNum) external override onlyGameHouse{
+    function onBeforeFinalize(uint56 _betId) external override onlyGameHouse{
         
     }
     
-    function onAfterFinalize(uint56 _betId, uint256 _randomNum) external override onlyGameHouse{
+    function onAfterFinalize(uint56 _betId) external override onlyGameHouse{
         
     }
     
