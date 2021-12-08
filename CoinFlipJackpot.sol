@@ -55,13 +55,15 @@ interface IArenaPlayerStorage {
         ) external;
 }
 
-
+// TODO: update code that requires winner claiming the jackpot instead of sending automatically as current !
 contract CoinFlipJackpot is IERC20Receiver, ICoinFlipGameExtension, Ownable, TransferableFund(new address[](0)){
     ICoinFlipGameHouse public immutable gameHouse;
     uint256 public jackpotAmt;              // jackpot accumulated amount
     uint256 public accumulatedFromTime;     // the time when the jackpot begun to accummulate
     uint256 public immutable chanceToWin;   // chanceToWin = 1000 means probability of jackpot trigger is 0.1%
     address public lastWinner;
+    uint256 public lastWonAmt;
+    uint256 public lastWonTime;
     
     event Triggered(address indexed player, uint256 amount, uint256 indexed betId, uint256 time);
     event Withdraw(address indexed sender, address to, uint256 amount, uint256 time);
@@ -118,6 +120,8 @@ contract CoinFlipJackpot is IERC20Receiver, ICoinFlipGameExtension, Ownable, Tra
             jackpotAmt = 0;
             accumulatedFromTime = 0;
             lastWinner = player;
+            lastWonAmt = transferedAmt;
+            lastWonTime = block.timestamp;
             // update player storage
             gameHouse.playerStorage().updateGameData(address(0), player, false, true, jackpotAmt, 0);
         }
